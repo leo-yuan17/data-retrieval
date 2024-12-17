@@ -136,3 +136,6 @@ dmypy.json
 
 # Cython debug symbols
 cython_debug/
+.vscode/PythonImportHelper-v2-Completion.json
+/cache
+/processed_data
