@@ -144,3 +144,4 @@ cython_debug/
 /download_models.py
 /small_ocr.pdf
 output/bboxes.json
+/chromadb
