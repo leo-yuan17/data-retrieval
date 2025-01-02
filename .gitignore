@@ -143,3 +143,4 @@ cython_debug/
 /output/small_ocr/auto
 /download_models.py
 /small_ocr.pdf
+output/bboxes.json
