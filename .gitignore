@@ -145,3 +145,5 @@ cython_debug/
 /small_ocr.pdf
 output/bboxes.json
 /chromadb
+/output/data
+/output/images
