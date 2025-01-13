@@ -1,3 +1,4 @@
+import sys
 from llama_index.core import SimpleDirectoryReader
 from llama_index.core import VectorStoreIndex
 from llama_index.core.tools import QueryEngineTool
@@ -6,13 +7,16 @@ from llama_index.core.selectors.llm_selectors import LLMSingleSelector
 from llama_index.core.indices.loading import load_index_from_storage
 from llama_index.core.storage import StorageContext
 from llms import nvidia_llm
-from embedding import get_embedding_model
+
+sys.path.append("./utils")
+from embedding_2 import Embedding # type: ignore
 from llama_index.core import Settings
 import os
 import json
 
 Settings.llm = nvidia_llm()
-Settings.embed_model = get_embedding_model()
+embed_model = Embedding()
+Settings.embed_model = embed_model.get_embedding_model()
 Settings.chunk_size = 1024
 
 

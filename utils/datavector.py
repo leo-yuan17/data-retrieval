@@ -86,17 +86,46 @@ class data_loader:
             self.content = json.load(f)
         return self.content
     
-    def add_json_in_db(self):
+    def embed_text(self,text,embedding_model,tokenizer,device:str = "cpu"):
         """
-        turn the json content to a database
+        Embed the text using the embedding model
         """
+        embedding_model.to(device)
+        inputs = tokenizer(text, padding=True, truncation=True, max_length=512, return_tensors="pt")
+        inputs_on_device = {k: v.to(self.device) for k, v in inputs.items()}
+        outputs = embedding_model(**inputs_on_device, return_dict=True)
+        embeddings = outputs.last_hidden_state[:, 0]  # cls pooler
+        embeddings = embeddings / embeddings.norm(dim=1, keepdim=True)  # normalize
+        return embeddings
+    
+    def add_json_in_db(self,json_path:str,embedding_model,tokenizer):
+        """
+        Add the json file to the database
+        """
+        self.json_path = json_path
+        with open(self.json_path, 'r',encoding="utf-8") as f:
+            self.content = json.load(f)
+        for item in self.content:
+            if "text" in item:
+                embedding = self.embed_text(item["text"],embedding_model=embedding_model,tokenizer=tokenizer)
+                self.collection.add(embeddings=embedding,metadatas={"page_idx":item["page_idx"]})
+            elif "image" in item:
+                embedding = self.embed_text(item["img_caption"])
+                self.collection.add(embeddings=embedding,metadatas={"page_idx":item["page_idx"],"img_path":item["img_path"]})
+            elif "table" in item:
+                embedding = self.embed_text(item["table_caption"])
+                self.collection.add(embeddings=embedding,metadatas={"page_idx":item["page_idx"],"table_path":item["table_path"]})
+        logging.info(f"Json file {json_path} added to the database successfully\n")
             
             
 if __name__ == "__main__":
+    from 
     data_loader = data_loader(path="data", client_name="chroma_db",
                               collection_name="pdf_data")
     # data_loader.extract_text_from_pdf("data/1-s2.0-S0169500222006870-main.pdf")
     content = data_loader.load_from_json(r"output\data\1-s2_content_list.json")
+    data_loader.add_json_in_db(r"output\data\1-s2_content_list.json")
+    
     print(content)
     
             
