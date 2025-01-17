@@ -8,7 +8,7 @@ import logging
 import json
 
 
-class data_loader:
+class data:
 
     def __init__(self, path: str, client_name: str, collection_name: str,
                  **kwargs):
@@ -16,8 +16,7 @@ class data_loader:
         self.kwargs = kwargs
         self.client_name = client_name
         self.collection_name = collection_name
-        self.client = chromadb.PersistentClient(path=self.path,
-                                                **self.kwargs)
+        self.client = chromadb.PersistentClient(path=self.path, **self.kwargs)
         self.collection = None
         try:
             self.collection = self.client.get_collection(self.collection_name)
@@ -76,56 +75,101 @@ class data_loader:
         pipe_result.dump_content_list(
             md_writer, f"{name_without_suff}_content_list.json", image_dir)
         logging.info(f"Text extracted from {data_path} successfully\n")
-        
-    def load_from_json(self,json_path:str):
+
+    def load_from_json(self, json_path: str):
         """
         Load the content from the json file
         """
         self.json_path = json_path
-        with open(self.json_path, 'r',encoding="utf-8") as f:
+        with open(self.json_path, 'r', encoding="utf-8") as f:
             self.content = json.load(f)
         return self.content
-    
-    def embed_text(self,text,embedding_model,tokenizer,device:str = "cpu"):
+
+    def embed_text(self,
+                   text,
+                   embedding_model,
+                   tokenizer,
+                   device: str = "cpu"):
         """
         Embed the text using the embedding model
         """
         embedding_model.to(device)
-        inputs = tokenizer(text, padding=True, truncation=True, max_length=512, return_tensors="pt")
+        self.device = device
+        inputs = tokenizer(text,
+                           padding=True,
+                           truncation=True,
+                           max_length=512,
+                           return_tensors="pt")
         inputs_on_device = {k: v.to(self.device) for k, v in inputs.items()}
         outputs = embedding_model(**inputs_on_device, return_dict=True)
         embeddings = outputs.last_hidden_state[:, 0]  # cls pooler
-        embeddings = embeddings / embeddings.norm(dim=1, keepdim=True)  # normalize
+        embeddings = embeddings / embeddings.norm(dim=1,
+                                                  keepdim=True)  # normalize
         return embeddings
-    
-    def add_json_in_db(self,json_path:str,embedding_model,tokenizer):
+
+    def add_json_in_db(self, json_path: str, embedding_model, tokenizer):
         """
         Add the json file to the database
         """
         self.json_path = json_path
-        with open(self.json_path, 'r',encoding="utf-8") as f:
+        self.ids = 0
+        with open(self.json_path, 'r', encoding="utf-8") as f:
             self.content = json.load(f)
         for item in self.content:
             if "text" in item:
-                embedding = self.embed_text(item["text"],embedding_model=embedding_model,tokenizer=tokenizer)
-                self.collection.add(embeddings=embedding,metadatas={"page_idx":item["page_idx"]})
+                embedding = self.embed_text(item["text"],
+                                            embedding_model=embedding_model,
+                                            tokenizer=tokenizer)
+                self.collection.add(embeddings=embedding.detach().numpy(),
+                                    metadatas=[{"page_idx": item["page_idx"],
+                                               "text": item["text"]}],
+                                    ids=str(self.ids))
             elif "image" in item:
                 embedding = self.embed_text(item["img_caption"])
-                self.collection.add(embeddings=embedding,metadatas={"page_idx":item["page_idx"],"img_path":item["img_path"]})
+                self.collection.add(embeddings=embedding.detach().numpy(),
+                                    metadatas=[{
+                                        "page_idx": item["page_idx"],
+                                        "img_caption": item["img_caption"],
+                                        "img_path": item["img_path"]
+                                    }],
+                                    ids=str(self.ids))
             elif "table" in item:
                 embedding = self.embed_text(item["table_caption"])
-                self.collection.add(embeddings=embedding,metadatas={"page_idx":item["page_idx"],"table_path":item["table_path"]})
-        logging.info(f"Json file {json_path} added to the database successfully\n")
-            
-            
+                self.collection.add(embeddings=embedding.detach().numpy(),
+                                    metadatas=[{
+                                        "page_idx": item["page_idx"],
+                                        "table_caption": item["table_caption"],
+                                        "table_path": item["table_path"]
+                                    }],
+                                    ids=str(self.ids))
+            self.ids += 1
+        logging.info(
+            f"Json file {json_path} added to the database successfully\n")
+        
+    def query(self, query: str, embedding_model, tokenizer, top=5):
+        """
+        Query the database with a query string
+        """
+        query_embedding = self.embed_text(query,
+                                          embedding_model=embedding_model,
+                                          tokenizer=tokenizer)
+        results = self.collection.query(query_embedding.detach().numpy(),
+                                        n_results=top)
+        results = results[0]
+        return results
+
+
 if __name__ == "__main__":
-    from 
-    data_loader = data_loader(path="data", client_name="chroma_db",
+    from embedding_2 import load_embeddingmodel
+    embed = load_embeddingmodel().get_embedding_model()
+    tokenizer = load_embeddingmodel().get_tokenizer()
+    data_loader = data(path="data",
+                              client_name="chroma_db",
                               collection_name="pdf_data")
     # data_loader.extract_text_from_pdf("data/1-s2.0-S0169500222006870-main.pdf")
     content = data_loader.load_from_json(r"output\data\1-s2_content_list.json")
-    data_loader.add_json_in_db(r"output\data\1-s2_content_list.json")
-    
-    print(content)
-    
-            
+    # data_loader.add_json_in_db(r"output\data\1-s2_content_list.json", embed,
+                            #    tokenizer)
+    results = data_loader.query("This is a query", embed, tokenizer)
+
+
