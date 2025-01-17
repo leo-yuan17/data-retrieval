@@ -6,7 +6,7 @@ from magic_pdf.model.doc_analyze_by_custom_model import doc_analyze
 from magic_pdf.config.enums import SupportedPdfParseMethod
 import logging
 import json
-
+import llms
 
 class data:
 
@@ -146,7 +146,7 @@ class data:
         logging.info(
             f"Json file {json_path} added to the database successfully\n")
         
-    def query(self, query: str, embedding_model, tokenizer, top=5):
+    def query(self, query: str, embedding_model, tokenizer,llm, top=5):
         """
         Query the database with a query string
         """
@@ -155,12 +155,16 @@ class data:
                                           tokenizer=tokenizer)
         results = self.collection.query(query_embedding.detach().numpy(),
                                         n_results=top)
-        results = results[0]
+        results = results["metadatas"][0]
+        content = ""
+        for result in results:
+            content += result["text"]+" "
+        results = llm.get_response(query,content)
         return results
-
 
 if __name__ == "__main__":
     from embedding_2 import load_embeddingmodel
+    llms = llms.load_llm()
     embed = load_embeddingmodel().get_embedding_model()
     tokenizer = load_embeddingmodel().get_tokenizer()
     data_loader = data(path="data",
@@ -170,6 +174,7 @@ if __name__ == "__main__":
     content = data_loader.load_from_json(r"output\data\1-s2_content_list.json")
     # data_loader.add_json_in_db(r"output\data\1-s2_content_list.json", embed,
                             #    tokenizer)
-    results = data_loader.query("This is a query", embed, tokenizer)
+    results = data_loader.query("what is the main conclusion of this paper", embed,llm=llms,tokenizer= tokenizer)
+    print(results) 
 
 
