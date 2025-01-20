@@ -8,6 +8,7 @@ import logging
 import json
 import llms
 
+
 class data:
 
     def __init__(self, path: str, client_name: str, collection_name: str,
@@ -121,32 +122,40 @@ class data:
                                             embedding_model=embedding_model,
                                             tokenizer=tokenizer)
                 self.collection.add(embeddings=embedding.detach().numpy(),
-                                    metadatas=[{"page_idx": item["page_idx"],
-                                               "text": item["text"]}],
+                                    metadatas=[{
+                                        "page_idx": item["page_idx"],
+                                        "text": item["text"]
+                                    }],
                                     ids=str(self.ids))
             elif "image" in item:
                 embedding = self.embed_text(item["img_caption"])
                 self.collection.add(embeddings=embedding.detach().numpy(),
                                     metadatas=[{
-                                        "page_idx": item["page_idx"],
-                                        "img_caption": item["img_caption"],
-                                        "img_path": item["img_path"]
+                                        "page_idx":
+                                        item["page_idx"],
+                                        "img_caption":
+                                        item["img_caption"],
+                                        "img_path":
+                                        item["img_path"]
                                     }],
                                     ids=str(self.ids))
             elif "table" in item:
                 embedding = self.embed_text(item["table_caption"])
                 self.collection.add(embeddings=embedding.detach().numpy(),
                                     metadatas=[{
-                                        "page_idx": item["page_idx"],
-                                        "table_caption": item["table_caption"],
-                                        "table_path": item["table_path"]
+                                        "page_idx":
+                                        item["page_idx"],
+                                        "table_caption":
+                                        item["table_caption"],
+                                        "table_path":
+                                        item["table_path"]
                                     }],
                                     ids=str(self.ids))
             self.ids += 1
         logging.info(
             f"Json file {json_path} added to the database successfully\n")
-        
-    def query(self, query: str, embedding_model, tokenizer,llm, top=5):
+
+    def query(self, query: str, embedding_model, tokenizer, llm, top=5):
         """
         Query the database with a query string
         """
@@ -158,23 +167,27 @@ class data:
         results = results["metadatas"][0]
         content = ""
         for result in results:
-            content += result["text"]+" "
-        results = llm.get_response(query,content)
+            content += result["text"] + " "
+        results = llm.get_response(query, content)
         return results
+
 
 if __name__ == "__main__":
     from embedding_2 import load_embeddingmodel
-    llms = llms.load_llm()
+    llms = llms.load_llm(model="deepseek-chat",
+                         api_key="sk-16824413873f4defa607185b05663278",
+                         url="https://api.deepseek.com")
     embed = load_embeddingmodel().get_embedding_model()
     tokenizer = load_embeddingmodel().get_tokenizer()
     data_loader = data(path="data",
-                              client_name="chroma_db",
-                              collection_name="pdf_data")
+                       client_name="chroma_db",
+                       collection_name="pdf_data")
     # data_loader.extract_text_from_pdf("data/1-s2.0-S0169500222006870-main.pdf")
     content = data_loader.load_from_json(r"output\data\1-s2_content_list.json")
     # data_loader.add_json_in_db(r"output\data\1-s2_content_list.json", embed,
-                            #    tokenizer)
-    results = data_loader.query("what is the main conclusion of this paper", embed,llm=llms,tokenizer= tokenizer)
-    print(results) 
-
-
+    #    tokenizer)
+    results = data_loader.query("what is the main conclusion of this paper",
+                                embed,
+                                llm=llms,
+                                tokenizer=tokenizer)
+    print(results)

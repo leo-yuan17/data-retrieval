@@ -59,8 +59,8 @@ class load_llm:
         elif self.model == "deepseek-chat":
             from openai import OpenAI
 
-            client = OpenAI(api_key="sk-16824413873f4defa607185b05663278",
-                            base_url="https://api.deepseek.com")
+            client = OpenAI(api_key= self.api_key,
+                            base_url = self.url)
 
             response = client.chat.completions.create(
                 model="deepseek-chat",
