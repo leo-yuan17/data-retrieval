@@ -150,3 +150,6 @@ output/bboxes.json
 /data/1742b692-c667-4ae2-80ae-5ac6ffd89069
 /data/6a1b5e49-4836-4c55-ab8f-3d41a6194b26
 data/chroma.sqlite3
+api.env
+.gradio/cached_examples/15/log.csv
+.gradio/certificate.pem

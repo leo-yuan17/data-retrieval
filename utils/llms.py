@@ -3,22 +3,21 @@ import logging
 import requests
 
 
-# deepseek sk-16824413873f4defa607185b05663278
-# nvidia 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
 class load_llm:
 
     def __init__(
         self,
-        model: str = "meta/llama-3.1-405b-instruct",
-        url: str = "https://integrate.api.nvidia.com/v1/chat/completions",
+        model: str = "deepseek-chat",
+        url: str = "https://api.deepseek.com",
         api_key:
-        str = "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",
+        str = "sk-16824413873f4defa607185b05663278",
         **kwargs
     ):  #kwargs: dict = {"temperature": 0.2, "top_p": 0.7, "frequency_penalty": 0, "presence_penalty": 0, "max_tokens": 1024, "stream": False}
         self.model = model
         self.url = url
         self.api_key = api_key
         self.kwargs = kwargs
+        self.history = []
 
     def get_response(self, prompt: str, question: str):
         if self.model == "meta/llama-3.1-405b-instruct":
