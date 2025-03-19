@@ -8,8 +8,10 @@ class load_llm:
     def __init__(
         self,
         model: str = "deepseek-chat",  # 模型名称，默认为"deepseek-chat"
-        url: str = "https://api.deepseek.com",  # API地址，默认为"https://api.deepseek.com"
-        api_key: str = "sk-16824413873f4defa607185b05663278",  # API密钥，默认为"sk-16824413873f4defa607185b05663278"
+        url:
+        str = "https://api.deepseek.com",  # API地址，默认为"https://api.deepseek.com"
+        api_key:
+        str = "sk-16824413873f4defa607185b05663278",  # API密钥，默认为"sk-16824413873f4defa607185b05663278"
         **kwargs
     ):  #kwargs: dict = {"temperature": 0.2, "top_p": 0.7, "frequency_penalty": 0, "presence_penalty": 0, "max_tokens": 1024, "stream": False}
         self.model = model  # 模型名称
@@ -18,6 +20,7 @@ class load_llm:
         self.kwargs = kwargs  # 其他参数
         self.history = []  # 历史记录
         self.reset = False  # 是否重置
+        self.messages = []  # 消息列表
 
     def get_response(self, prompt: str, question: str):
         # 如果模型是meta/llama-3.1-405b-instruct
@@ -67,7 +70,7 @@ class load_llm:
                 "role":
                 "system",
                 "content":
-                f"You are a doctor, now you should answer the question: {question} based on the following information: {prompt}"
+                f"You are a doctor, now you should answer the question: {question} based on the following information: {prompt},you should answer the question in Chinese."
             })
 
             # 添加用户消息
@@ -87,7 +90,7 @@ class load_llm:
             # 添加助手消息
             self.messages.append({"role": "assistant", "content": result})
         return result
-    
+
     def _generate_response(self):
         """
         分段处理对话，确保 token 数量不超过限制
@@ -95,7 +98,7 @@ class load_llm:
         from openai import OpenAI
 
         client = OpenAI(api_key=self.api_key, base_url=self.url)
-        
+
         # 确保对话历史不超过最大 token 限制
         if self._count_tokens(self.messages) > self.token_limit:
             # 取最新的对话历史，不超过最大 token 数量
@@ -107,8 +110,7 @@ class load_llm:
             model="deepseek-chat",
             messages=trimmed_messages,  # 传递处理过的对话历史
             stream=False,
-            max_tokens=self.max_tokens
-        )
+            max_tokens=self.max_tokens)
 
         return response
 
@@ -130,4 +132,4 @@ class load_llm:
         total_tokens = 0
         for message in messages:
             total_tokens += len(message["content"].split())  # 估算 token 数量
-        return total_tokens 
+        return total_tokens
