@@ -22,7 +22,8 @@ class load_llm:
         self.reset = False  # 是否重置
         self.messages = []  # 消息列表
 
-    def get_response(self, prompt: str, question: str):
+    def get_response(self, query: str, content: str, patient_condition: str,
+                     **kwargs):
         # 如果模型是meta/llama-3.1-405b-instruct
         if self.model == "meta/llama-3.1-405b-instruct":
             # 设置payload
@@ -45,7 +46,7 @@ class load_llm:
                     "role":
                     "user",
                     "content":
-                    f"You are a doctor,now you should answer the question:{question}based on the following information:{prompt}"
+                    f"You are a doctor,now you should answer the question:{query}based on the following information:{content},these are the patient conditions: {patient_condition}."
                 }]
             }
             # 设置headers
@@ -70,11 +71,11 @@ class load_llm:
                 "role":
                 "system",
                 "content":
-                f"You are a doctor, now you should answer the question: {question} based on the following information: {prompt},you should answer the question in Chinese."
+                f"You are a doctor,now you should answer the question:{query}based on the following information:{content},these are the patient conditions: {patient_condition}."
             })
 
             # 添加用户消息
-            self.messages.append({"role": "user", "content": question})
+            self.messages.append({"role": "user", "content": query})
             from openai import OpenAI
 
             # 创建OpenAI客户端

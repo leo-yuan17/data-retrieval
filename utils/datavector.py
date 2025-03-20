@@ -6,7 +6,8 @@ from magic_pdf.model.doc_analyze_by_custom_model import doc_analyze
 from magic_pdf.config.enums import SupportedPdfParseMethod
 import logging
 import json
-import llms
+from utils import llms
+import torch
 
 
 class data:
@@ -32,7 +33,7 @@ class data:
                 logging.error(
                     f"Error creating collection {self.collection_name}\n")
 
-    def extract_text_from_pdf(self, data_path: str):
+    def extract_text_from_pdf(self, data_path: str, embedding_model, tokenizer):
         """
         Extract text from pdf file
         save the extracted text in a markdown file
@@ -77,6 +78,11 @@ class data:
             md_writer, f"{name_without_suff}_content_list.json", image_dir)
         logging.info(f"Text extracted from {data_path} successfully\n")
 
+        # 自动加载 JSON 文件并加入数据库
+        json_path = os.path.join(local_md_dir,
+                                 f"{name_without_suff}_content_list.json")
+        self.add_json_in_db(json_path, embedding_model, tokenizer)
+
     def load_from_json(self, json_path: str):
         """
         Load the content from the json file
@@ -86,11 +92,12 @@ class data:
             self.content = json.load(f)
         return self.content
 
-    def embed_text(self,
-                   text,
-                   embedding_model,
-                   tokenizer,
-                   device: str = "cpu"):
+    def embed_text(
+            self,
+            text,
+            embedding_model,
+            tokenizer,
+            device: str = "cuda" if torch.cuda.is_available() else "cpu"):
         """
         Embed the text using the embedding model
         """
@@ -121,12 +128,15 @@ class data:
                 embedding = self.embed_text(item["text"],
                                             embedding_model=embedding_model,
                                             tokenizer=tokenizer)
-                self.collection.add(embeddings=embedding.detach().numpy(),
+                if embedding.device != 'cpu':
+                    embedding = embedding.detach().cpu()
+                self.collection.add(embeddings=embedding.numpy(),
                                     metadatas=[{
                                         "page_idx": item["page_idx"],
                                         "text": item["text"]
                                     }],
                                     ids=str(self.ids))
+
             elif "image" in item:
                 embedding = self.embed_text(item["img_caption"])
                 self.collection.add(embeddings=embedding.detach().numpy(),
@@ -155,39 +165,54 @@ class data:
         logging.info(
             f"Json file {json_path} added to the database successfully\n")
 
-    def query(self, query: str, embedding_model, tokenizer, llm, top=5):
+    def query(self,
+              query: str,
+              patient_condition: str,
+              embedding_model,
+              tokenizer,
+              llm,
+              top=5):
         """
         Query the database with a query string
         """
-        query_embedding = self.embed_text(query,
+        query_embedding = self.embed_text(patient_condition,
                                           embedding_model=embedding_model,
                                           tokenizer=tokenizer)
-        results = self.collection.query(query_embedding.detach().numpy(),
-                                        n_results=top)
-        results = results["metadatas"][0]
-        content = ""
-        for result in results:
-            content += result["text"] + " "
-        results = llm.get_response(query, content)
-        return results
+
+        # 将张量从 CUDA 移动到 CPU 并转换为 numpy
+        query_embedding = query_embedding.detach().cpu().numpy()
+
+        results = self.collection.query(query_embedding, n_results=top)
+
+        if "metadatas" in results and results["metadatas"]:
+            results = results["metadatas"][0]
+            content = ""
+            for result in results:
+                if "text" in result:
+                    content += result["text"] + " "
+            results = llm.get_response(query, content,
+                                       patient_condition)  #问题，查询的内容，病人情况
+            return results
+        else:
+            return "未找到相关内容"
 
 
 if __name__ == "__main__":
     from embedding_2 import load_embeddingmodel
-    llms = llms.load_llm(model="deepseek-chat",
-                         api_key="sk-16824413873f4defa607185b05663278",
-                         url="https://api.deepseek.com")
+    llm = llms.load_llm(model="deepseek-chat",
+                        api_key="sk-16824413873f4defa607185b05663278",
+                        url="https://api.deepseek.com")
     embed = load_embeddingmodel().get_embedding_model()
     tokenizer = load_embeddingmodel().get_tokenizer()
     data_loader = data(path="data",
                        client_name="chroma_db",
                        collection_name="pdf_data")
-    # data_loader.extract_text_from_pdf("data/1-s2.0-S0169500222006870-main.pdf")
-    content = data_loader.load_from_json(r"output\data\1-s2_content_list.json")
-    # data_loader.add_json_in_db(r"output\data\1-s2_content_list.json", embed,
-    #    tokenizer)
+    # # data_loader.extract_text_from_pdf("data/1-s2.0-S0169500222006870-main.pdf")
+    # content = data_loader.load_from_json(r"output\data\1-s2_content_list.json")
+    # # data_loader.add_json_in_db(r"output\data\1-s2_content_list.json", embed,
+    # #    tokenizer)
     results = data_loader.query("what is the main conclusion of this paper",
                                 embed,
-                                llm=llms,
+                                llm=llm,
                                 tokenizer=tokenizer)
     print(results)
